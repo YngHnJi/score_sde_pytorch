@@ -23,16 +23,23 @@ import logging
 import os
 import tensorflow as tf
 
+#os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+#os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3" ## Number of GPU control from top of utils.py
+
 FLAGS = flags.FLAGS
 
-config_flags.DEFINE_config_file(
-  "config", None, "Training configuration.", lock_config=True)
-flags.DEFINE_string("workdir", None, "Work directory.")
-flags.DEFINE_enum("mode", None, ["train", "eval"], "Running mode: train or eval")
-flags.DEFINE_string("eval_folder", "eval",
-                    "The folder name for storing evaluation results")
-flags.mark_flags_as_required(["workdir", "config", "mode"])
+#config_flags.DEFINE_config_file("config", None, "Training configuration.", lock_config=True)
+# flags.DEFINE_string("workdir", None, "Work directory.")
+# flags.DEFINE_enum("mode", None, ["train", "eval"], "Running mode: train or eval")
+# flags.DEFINE_string("eval_folder", "eval", "The folder name for storing evaluation results")
+# flags.mark_flags_as_required(["workdir", "config", "mode"])
 
+path = "./configs/ve/cifar10_ddpm.py"
+config_flags.DEFINE_config_file("config", path, "Training configuration.", lock_config=True)
+flags.DEFINE_string("workdir", "./output/220503_test/", "Work directory.")
+flags.DEFINE_enum("mode", "train", ["train", "eval"], "Running mode: train or eval")
+flags.DEFINE_string("eval_folder", "eval", "The folder name for storing evaluation results")
+flags.mark_flags_as_required(["workdir", "config", "mode"])
 
 def main(argv):
   if FLAGS.mode == "train":

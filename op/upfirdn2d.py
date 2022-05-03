@@ -13,6 +13,7 @@ upfirdn2d_op = load(
         os.path.join(module_path, "upfirdn2d.cpp"),
         os.path.join(module_path, "upfirdn2d_kernel.cu"),
     ],
+    verbose=True, # yhji added to check build status
 )
 
 

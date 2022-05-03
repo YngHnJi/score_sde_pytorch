@@ -125,27 +125,7 @@ def get_smld_loss_fn(vesde, train, reduce_mean=False):
   return loss_fn
 
 
-def get_ddpm_loss_fn(vpsde, train, reduce_mean=True):
-  """Legacy code to reproduce previous results on DDPM. Not recommended for new work."""
-  assert isinstance(vpsde, VPSDE), "DDPM training only works for VPSDEs."
-
-  reduce_op = torch.mean if reduce_mean else lambda *args, **kwargs: 0.5 * torch.sum(*args, **kwargs)
-
-  def loss_fn(model, batch):
-    model_fn = mutils.get_model_fn(model, train=train)
-    labels = torch.randint(0, vpsde.N, (batch.shape[0],), device=batch.device)
-    sqrt_alphas_cumprod = vpsde.sqrt_alphas_cumprod.to(batch.device)
-    sqrt_1m_alphas_cumprod = vpsde.sqrt_1m_alphas_cumprod.to(batch.device)
-    noise = torch.randn_like(batch)
-    perturbed_data = sqrt_alphas_cumprod[labels, None, None, None] * batch + \
-                     sqrt_1m_alphas_cumprod[labels, None, None, None] * noise
-    score = model_fn(perturbed_data, labels)
-    losses = torch.square(score - noise)
-    losses = reduce_op(losses.reshape(losses.shape[0], -1), dim=-1)
-    loss = torch.mean(losses)
-    return loss
-
-  return loss_fn
+ 
 
 
 def get_step_fn(sde, train, optimize_fn=None, reduce_mean=False, continuous=True, likelihood_weighting=False):

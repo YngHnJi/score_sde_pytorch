@@ -15,10 +15,12 @@
 
 """All functions and modules related to model definition.
 """
-
+import os
 import torch
 import sde_lib
 import numpy as np
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 
 
 _MODELS = {}
@@ -89,8 +91,9 @@ def create_model(config):
   """Create the score model."""
   model_name = config.model.name
   score_model = get_model(model_name)(config)
-  score_model = score_model.to(config.device)
-  score_model = torch.nn.DataParallel(score_model)
+  #score_model = score_model.to(config.device)
+  score_model = score_model.to(config.device).float()
+  score_model = torch.nn.DataParallel(score_model) # 220423 @yhji edit for multiple gpu
   return score_model
 
 

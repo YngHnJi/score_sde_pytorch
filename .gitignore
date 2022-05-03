@@ -19,3 +19,8 @@ dist/
 
 # Other
 *.DS_Store
+
+# added yhji 
+*.pth
+output/
+*.npz
