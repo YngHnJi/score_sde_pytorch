@@ -137,14 +137,14 @@ def get_ddpm_loss_fn(vpsde, train, reduce_mean=True):
     sqrt_1m_alphas_cumprod = vpsde.sqrt_1m_alphas_cumprod.to(batch.device)
     noise = torch.randn_like(batch)
     perturbed_data = sqrt_alphas_cumprod[labels, None, None, None] * batch + \
-                     sqrt_1m_alphas_cumprod[labels, None, None, None] * noise
+                     sqrt_1m_alphas_cumprod[labels, None, None, None] * noise # discrete markov chain
     score = model_fn(perturbed_data, labels)
     losses = torch.square(score - noise)
     losses = reduce_op(losses.reshape(losses.shape[0], -1), dim=-1)
     loss = torch.mean(losses)
     return loss
 
-  return loss_fn 
+  return loss_fn
 
 
 def get_step_fn(sde, train, optimize_fn=None, reduce_mean=False, continuous=True, likelihood_weighting=False):
