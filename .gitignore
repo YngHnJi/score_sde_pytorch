@@ -20,8 +20,9 @@ dist/
 # Other
 *.DS_Store
 
-# added yhji 
+# added by yhji 
 *.pth
 output/
 *.npz
 *.png
+utils_yhji/
