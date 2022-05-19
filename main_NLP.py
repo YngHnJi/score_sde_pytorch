@@ -25,10 +25,11 @@ import tensorflow as tf
 
 FLAGS = flags.FLAGS
 
-path = "./configs_vessel/ve/vessel_ddpmpp.py"
+path = "./configs_vessel/ve/vessel_ddpm.py"
+#path = "./configs_vessel/vp/vessel_ddpmpp.py"
 config_flags.DEFINE_config_file("config", path, "Training configuration.", lock_config=True)
-#flags.DEFINE_string("workdir", "./output/220511_vp_ddpm_cifar10/", "Work directory.")
-flags.DEFINE_string("workdir", "./output/debug/", "Work directory.")
+#flags.DEFINE_string("workdir", "./output/220519_vessel_test/", "Work directory.")
+flags.DEFINE_string("workdir", "./output/debug/220518_vessel/", "Work directory.")
 flags.DEFINE_enum("mode", "train", ["train", "eval"], "Running mode: train or eval")
 flags.DEFINE_string("eval_folder", "eval", "The folder name for storing evaluation results")
 flags.mark_flags_as_required(["workdir", "config", "mode"])
@@ -49,6 +50,7 @@ def main(argv):
     # Run the training pipeline
     run_lib_NLP.train(FLAGS.config, FLAGS.workdir)
     #run_lib_NLP.train_debug(FLAGS.config, FLAGS.workdir)
+    #run_lib_NLP.train_gen_debug(FLAGS.config, FLAGS.workdir)
   elif FLAGS.mode == "eval":
     # Run the evaluation pipeline
     run_lib_NLP.evaluate(FLAGS.config, FLAGS.workdir, FLAGS.eval_folder)

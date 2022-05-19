@@ -26,6 +26,19 @@ def get_data_inverse_scaler(config):
   else:
     return lambda x: x
 
+# torch tensor input
+def show_graph_data(x, node_range=(0,584)):
+  max_node_num, num_coord = x.shape
+  x_np = x.detach().cpu().numpy()
+
+  img = np.zeros((max(node_range), max(node_range)), dtype=np.uint8)
+
+  for i in range(max_node_num):
+    node_y, node_x = int(x_np[i][0]*max(node_range)), int(x_np[i][1]*max(node_range))
+    img[node_y, node_x] = 255
+
+  return img
+
 class VesselNodeDataLoader(torch.utils.data.Dataset):
   def __init__(self, data_path):
     self.data_path = data_path
@@ -100,8 +113,15 @@ if __name__=="__main__":
 
 
   print("debug")
+  temp = next(iter(test_dataset_loader))
+  img = show_graph_data(temp[0])
+  print("debug")
 
-  # temp = next(iter(test_dataset_loader))
+
+
+
+
+  # 
   # temp_npy = temp.numpy()
   # debug_path = "./output/debug/220513_dataloader/"
   # for i in range(4):
@@ -111,12 +131,3 @@ if __name__=="__main__":
   #     viz_map[node_y, node_x] = 255
 
   #   cv2.imwrite(debug_path+str(i)+".png", viz_map)
-
-  # for i in range(10):
-  #   batch = next(iter(test_dataset_loader))
-  #   print(batch.shape, batch.mean(), batch.std())
-
-
-  # for i, data in enumerate(temp):
-  #   batch = data
-  #   print(batch.shape, batch.mean(), batch.std())

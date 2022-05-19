@@ -329,7 +329,8 @@ class MLP_Unet(nn.Module):
 
     assert m_idx == len(modules)
     if self.config.model.scale_by_sigma:
-      used_sigmas = used_sigmas.reshape((x.shape[0], *([1] * len(x.shape[1:]))))
+      #used_sigmas = used_sigmas.reshape((x.shape[0], *([1] * len(x.shape[1:]))))
+      used_sigmas = used_sigmas[:, None, None]
       h = h / used_sigmas
 
     return h
