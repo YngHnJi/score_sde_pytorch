@@ -108,14 +108,23 @@ def get_smld_loss_fn(vesde, train, reduce_mean=False):
   # Previous SMLD models assume descending sigmas
   smld_sigma_array = torch.flip(vesde.discrete_sigmas, dims=(0,))
   reduce_op = torch.mean if reduce_mean else lambda *args, **kwargs: 0.5 * torch.sum(*args, **kwargs)
+  node_range = (0, 584)
 
   def loss_fn(model, batch):
+    data, length = batch[0], batch[1]
     model_fn = mutils.get_model_fn(model, train=train) # switch for model train or eval
-    labels = torch.randint(0, vesde.N, (batch.shape[0],), device=batch.device)
-    sigmas = smld_sigma_array.to(batch.device)[labels]
+    labels = torch.randint(0, vesde.N, (data.shape[0],), device=data.device)
+    sigmas = smld_sigma_array.to(data.device)[labels]
     #noise = torch.randn_like(batch) * sigmas[:, None, None, None]
-    noise = torch.randn_like(batch) * sigmas[:, None, None]
-    perturbed_data = noise + batch
+    noise = torch.randn_like(data) * sigmas[:, None, None]
+    perturbed_data = noise + data
+    # data length clipging
+    for i,length_mark in enumerate(length):
+      perturbed_data[i][length_mark.item():] = 0
+    
+    perturbed_data[perturbed_data > 1.0] = 0.998
+    perturbed_data[perturbed_data < 0.0] = 0.0
+    
     score = model_fn(perturbed_data, labels)
     #target = -noise / (sigmas ** 2)[:, None, None, None]
     target = -noise / (sigmas ** 2)[:, None, None]

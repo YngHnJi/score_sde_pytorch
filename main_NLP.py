@@ -28,8 +28,10 @@ FLAGS = flags.FLAGS
 path = "./configs_vessel/ve/vessel_ddpm.py"
 #path = "./configs_vessel/vp/vessel_ddpmpp.py"
 config_flags.DEFINE_config_file("config", path, "Training configuration.", lock_config=True)
-#flags.DEFINE_string("workdir", "./output/220519_vessel_test/", "Work directory.")
-flags.DEFINE_string("workdir", "./output/debug/220518_vessel/", "Work directory.")
+#flags.DEFINE_string("workdir", "./output/220520_vessel_test/", "Work directory.")
+#flags.DEFINE_string("workdir", "./output/220521_vessel_test/", "Work directory.")
+#flags.DEFINE_string("workdir", "./output/debug/220518_vessel/", "Work directory.")
+flags.DEFINE_string("workdir", "./output/debug/220520_vessel/", "Work directory.")
 flags.DEFINE_enum("mode", "train", ["train", "eval"], "Running mode: train or eval")
 flags.DEFINE_string("eval_folder", "eval", "The folder name for storing evaluation results")
 flags.mark_flags_as_required(["workdir", "config", "mode"])

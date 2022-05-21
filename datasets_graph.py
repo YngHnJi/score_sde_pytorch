@@ -54,8 +54,9 @@ class VesselNodeDataLoader(torch.utils.data.Dataset):
 
   def __getitem__(self, idx):
     data = self.graph_data[idx]
+    length = self.graph_data_length[idx] # added for dataset part
       
-    return data
+    return data, length
 
   def data_load(self):
     data = np.load(self.data_path, allow_pickle=True)
