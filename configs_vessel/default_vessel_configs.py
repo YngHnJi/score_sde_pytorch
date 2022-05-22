@@ -32,10 +32,10 @@ def get_default_configs():
 
   # evaluation
   config.eval = evaluate = ml_collections.ConfigDict()
-  #evaluate.begin_ckpt = 9
-  #evaluate.end_ckpt = 26
-  evaluate.begin_ckpt = 18
-  evaluate.end_ckpt = 19
+  evaluate.begin_ckpt = 9
+  evaluate.end_ckpt = 26
+  # evaluate.begin_ckpt = 18
+  # evaluate.end_ckpt = 19
   #evaluate.batch_size = 1024
   evaluate.batch_size = 4
   #evaluate.enable_sampling = False
@@ -56,11 +56,16 @@ def get_default_configs():
 
   # model
   config.model = model = ml_collections.ConfigDict()
-  model.sigma_min = 0.01
-  model.sigma_max = 50
-  model.num_scales = 1000
-  model.beta_min = 0.1
-  model.beta_max = 20.
+  # model.sigma_min = 0.01 # default for ve
+  # model.sigma_max = 50 # default for ve
+  # model.num_scales = 1000
+  model.sigma_min = 0.0001
+  model.sigma_max = 0.1
+  model.num_scales = 100
+  # model.beta_min = 0.1 # default for vp
+  # model.beta_max = 20. # default for vp
+  model.beta_min = 0.0001
+  model.beta_max = 0.01
   model.dropout = 0.1
   model.embedding_type = 'fourier'
 
