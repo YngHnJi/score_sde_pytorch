@@ -27,14 +27,17 @@ import tensorflow_gan as tfgan
 import logging
 # Keep the import below for registering all model definitions
 from models import ddpm, ncsnv2, ncsnpp
-import losses_NLP as losses
-import sampling
-from models import utils as mutils
+import losses_MLP as losses
+#import sampling
+import sampling_MLP
+#from models import utils as mutils
+from models import utils_MLP as mutils
 from models.ema import ExponentialMovingAverage
 import datasets
 import evaluation
 import likelihood
-import sde_lib
+#import sde_lib
+import sde_lib_MLP as sde_lib
 from absl import flags
 import torch
 from torch.utils import tensorboard
@@ -44,6 +47,9 @@ from utils import save_checkpoint, restore_checkpoint
 from datasets_graph import VesselNodeDataLoader
 from models.mlp_unet import MLP_Unet
 
+import cv2
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 FLAGS = flags.FLAGS
 
@@ -88,9 +94,9 @@ def train(config, workdir):
   # train_ds, eval_ds, _ = datasets.get_dataset(config, uniform_dequantization=config.data.uniform_dequantization)
   # train_iter = iter(train_ds)  # pytype: disable=wrong-arg-types
   # eval_iter = iter(eval_ds)  # pytype: disable=wrong-arg-types
-  data_path = "./utils_yhji/node_npy_data/220511_sampling12/220511_sampling12.npy"
-  train_ds = VesselNodeDataLoader(data_path)
-  train_loader = torch.utils.data.DataLoader(train_ds, batch_size=4, num_workers=1, shuffle=True)
+  #data_path = "./utils_yhji/node_npy_data/220511_sampling12/220511_sampling12.npy"
+  train_ds = VesselNodeDataLoader(config.data_path)
+  train_loader = torch.utils.data.DataLoader(train_ds, batch_size=config.training.batch_size, num_workers=1, shuffle=True)
 
   # # Create data normalizer and its inverse
   scaler = datasets.get_data_scaler(config)
@@ -119,8 +125,10 @@ def train(config, workdir):
 
   # Building sampling functions
   if config.training.snapshot_sampling:
-    sampling_shape = (config.training.batch_size, config.data.num_channels, config.data.image_size, config.data.image_size)
-    sampling_fn = sampling.get_sampling_fn(config, sde, sampling_shape, inverse_scaler, sampling_eps)
+    #sampling_shape = (config.training.batch_size, config.data.num_channels, config.data.image_size, config.data.image_size)
+    #sampling_fn = sampling.get_sampling_fn(config, sde, sampling_shape, inverse_scaler, sampling_eps)
+    sampling_shape = (config.training.batch_size, 623, 2)
+    sampling_fn = sampling_MLP.get_sampling_fn(config, sde, sampling_shape, inverse_scaler, sampling_eps)
 
   num_train_steps = config.training.n_iters
 
@@ -130,7 +138,10 @@ def train(config, workdir):
   for step in range(initial_step, num_train_steps + 1):
     #######################################################
     #batch = torch.from_numpy(next(train_iter)['image']._numpy()).to(config.device).float()
-    batch = next(iter(train_loader)).to(config.device)
+    #batch = next(iter(train_loader)).to(config.device)
+    graph, length = next(iter(train_loader))
+    batch = (graph.to(config.device), length)
+    
     #batch = batch.permute(0, 3, 1, 2)
     #batch = scaler(batch)
     # Execute one training step
@@ -154,9 +165,9 @@ def train(config, workdir):
 
     # Save a checkpoint periodically and generate samples if needed
     if step != 0 and step % config.training.snapshot_freq == 0 or step == num_train_steps:
-      # Save the checkpoint.
-      save_step = step // config.training.snapshot_freq
-      save_checkpoint(os.path.join(checkpoint_dir, f'checkpoint_{save_step}.pth'), state)
+      # # Save the checkpoint.
+      # save_step = step // config.training.snapshot_freq
+      # save_checkpoint(os.path.join(checkpoint_dir, f'checkpoint_{save_step}.pth'), state)
       #######################################################
       # Generate and save samples
       if config.training.snapshot_sampling:
@@ -164,23 +175,21 @@ def train(config, workdir):
         ema.copy_to(score_model.parameters())
         sample, n = sampling_fn(score_model)
         ema.restore(score_model.parameters())
-        this_sample_dir = os.path.join(sample_dir, "iter_{}".format(step))
-        tf.io.gfile.makedirs(this_sample_dir)
-        nrow = int(np.sqrt(sample.shape[0]))
-        image_grid = make_grid(sample, nrow, padding=2)
-        sample = np.clip(sample.permute(0, 2, 3, 1).cpu().numpy() * 255, 0, 255).astype(np.uint8)
-        with tf.io.gfile.GFile(
-            os.path.join(this_sample_dir, "sample.np"), "wb") as fout:
-          np.save(fout, sample)
 
-        with tf.io.gfile.GFile(
-            os.path.join(this_sample_dir, "sample.png"), "wb") as fout:
-          save_image(image_grid, fout)
+        # sample[sample > 1.0] = 0.998
+        # sample[sample < 0.0] = 0.0
+
+        sample_save_path = os.path.join(sample_dir, str(step))
+        os.makedirs(sample_save_path, exist_ok=True)
+        for i_sample in range(config.training.batch_size):
+          image_sample = sampling_MLP.show_graph_data(sample[i_sample])
+          cv2.imwrite(sample_save_path + "/sample_" + str(i_sample) + ".png", image_sample)
+        
+        #np.save(sample_save_path+"/generated_nodes.npy", sample.detach().cpu().numpy() * 584)
+        np.save(sample_save_path+"/generated_nodes.npy", sample.detach().cpu().numpy())
 
 
-def evaluate(config,
-             workdir,
-             eval_folder="eval"):
+def evaluate(config, workdir, eval_folder="eval"):
   """Evaluate trained models.
 
   Args:
@@ -413,8 +422,7 @@ def evaluate(config,
         np.savez_compressed(io_buffer, IS=inception_score, fid=fid, kid=kid)
         f.write(io_buffer.getvalue())
 
-
-def train_debug(config, workdir):
+def node_generating(config, workdir):
   """Runs the training pipeline.
 
   Args:
@@ -434,12 +442,86 @@ def train_debug(config, workdir):
   # Initialize model.
   #score_model = mutils.create_model(config)
   score_model = MLP_Unet(config)
-  dummy = torch.randn(128, 623, 2)
-  labels = torch.randint(0, 1000, (128,))
-  out = score_model(dummy, labels)
 
   score_model = score_model.to(config.device).float()
   score_model = torch.nn.DataParallel(score_model) # 220423 @yhji edit for multiple gpu
   ema = ExponentialMovingAverage(score_model.parameters(), decay=config.model.ema_rate)
   optimizer = losses.get_optimizer(config, score_model.parameters())
   state = dict(optimizer=optimizer, model=score_model, ema=ema, step=0)
+
+  # Create checkpoints directory
+  checkpoint_dir = os.path.join(workdir, "checkpoints")
+  # Intermediate checkpoints to resume training after pre-emption in cloud environments
+  checkpoint_meta_dir = os.path.join(workdir, "checkpoints-meta", "checkpoint.pth")
+  tf.io.gfile.makedirs(checkpoint_dir)
+  tf.io.gfile.makedirs(os.path.dirname(checkpoint_meta_dir))
+  # Resume training when intermediate checkpoints are detected
+  state = restore_checkpoint(checkpoint_meta_dir, state, config.device)
+  initial_step = int(state['step'])
+
+  # # Build data iterators
+  # train_ds, eval_ds, _ = datasets.get_dataset(config, uniform_dequantization=config.data.uniform_dequantization)
+  # train_iter = iter(train_ds)  # pytype: disable=wrong-arg-types
+  # eval_iter = iter(eval_ds)  # pytype: disable=wrong-arg-types
+  # data_path = "./utils_yhji/node_npy_data/220511_sampling12/220511_sampling12.npy"
+  # train_ds = VesselNodeDataLoader(data_path)
+  # train_loader = torch.utils.data.DataLoader(train_ds, batch_size=4, num_workers=1, shuffle=True)
+
+  # # Create data normalizer and its inverse
+  scaler = datasets.get_data_scaler(config)
+  inverse_scaler = datasets.get_data_inverse_scaler(config)
+
+  # Setup SDEs
+  if config.training.sde.lower() == 'vpsde':
+    sde = sde_lib.VPSDE(beta_min=config.model.beta_min, beta_max=config.model.beta_max, N=config.model.num_scales)
+    sampling_eps = 1e-3
+  elif config.training.sde.lower() == 'subvpsde':
+    sde = sde_lib.subVPSDE(beta_min=config.model.beta_min, beta_max=config.model.beta_max, N=config.model.num_scales)
+    sampling_eps = 1e-3
+  elif config.training.sde.lower() == 'vesde':
+    sde = sde_lib.VESDE(sigma_min=config.model.sigma_min, sigma_max=config.model.sigma_max, N=config.model.num_scales)
+    sampling_eps = 1e-5
+  else:
+    raise NotImplementedError(f"SDE {config.training.sde} unknown.")
+
+  # Build one-step training and evaluation functions
+  # optimize_fn = losses.optimization_manager(config)
+  # continuous = config.training.continuous
+  # reduce_mean = config.training.reduce_mean
+  # likelihood_weighting = config.training.likelihood_weighting
+  # train_step_fn = losses.get_step_fn(sde, train=True, optimize_fn=optimize_fn, reduce_mean=reduce_mean, continuous=continuous, likelihood_weighting=likelihood_weighting)
+  #eval_step_fn = losses.get_step_fn(sde, train=False, optimize_fn=optimize_fn, reduce_mean=reduce_mean, continuous=continuous, likelihood_weighting=likelihood_weighting)
+
+  # Building sampling functions
+  if config.training.snapshot_sampling:
+    #sampling_shape = (config.training.batch_size, config.data.num_channels, config.data.image_size, config.data.image_size)
+    sampling_shape = (config.training.batch_size, 623, 2)
+    #sampling_fn = sampling.get_sampling_fn(config, sde, sampling_shape, inverse_scaler, sampling_eps)
+    sampling_fn = sampling_MLP.get_sampling_fn(config, sde, sampling_shape, inverse_scaler, sampling_eps)
+
+  # num_train_steps = config.training.n_iters
+
+  # In case there are multiple hosts (e.g., TPU pods), only log to host 0
+  logging.info("Starting training loop at step %d." % (initial_step,))
+
+
+  #save_checkpoint(os.path.join(checkpoint_dir, f'checkpoint_{0}.pth'), state)
+  #######################################################
+  # Generate and save samples
+  if config.training.snapshot_sampling:
+    ema.store(score_model.parameters())
+    ema.copy_to(score_model.parameters())
+    sample, n = sampling_fn(score_model)
+    ema.restore(score_model.parameters())
+    #this_sample_dir = os.path.join(sample_dir, "iter_{}".format(step))
+    #tf.io.gfile.makedirs(this_sample_dir)
+    #nrow = int(np.sqrt(sample.shape[0]))
+    # sample[sample > 1.0] = 0.998
+    # sample[sample < 0.0] = 0.0
+    
+    #sample_save_path = os.makedirs(os.path.join(sample_dir, step))
+    sample_save_path = os.path.join(sample_dir, str(0))
+    os.makedirs(sample_save_path)
+    for i_sample in range(config.training.batch_size):
+      image_sample = sampling_MLP.show_graph_data(sample[i_sample])
+      cv2.imwrite(sample_save_path + "/sample_" + str(i_sample) + ".png", image_sample)

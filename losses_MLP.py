@@ -19,29 +19,15 @@
 import torch
 import torch.optim as optim
 import numpy as np
-from models import utils as mutils
-from sde_lib import VESDE, VPSDE
+#from models import utils as mutils
+from models import utils_MLP as mutils
+#from sde_lib import VESDE, VPSDE
+from sde_lib_MLP import VESDE, VPSDE
 
+from sampling_MLP import show_graph_data
 
-# ############# debug purpose ##########
-# import cv2
-
-# debug_path = "./output/debug/220522_node_diffusion_ddpm/beta_0_001_0_01_100/"
-
-# def show_graph_data(x, node_range=(0,584)):
-#   max_node_num, num_coord = x.shape
-#   x_np = x.detach().cpu().numpy()
-
-#   img = np.zeros((max(node_range), max(node_range)), dtype=np.uint8)
-
-#   for i in range(max_node_num):
-#     node_y, node_x = int(x_np[i][0]*max(node_range)), int(x_np[i][1]*max(node_range))
-#     img[node_y, node_x] = 255
-
-#   return img
-# ############# debug purpose ##########
-
-
+import cv2
+debug_path = "./output/debug/220524_datanorm_range2/"
 
 def get_optimizer(config, params):
   """Returns a flax optimizer object based on `config`."""
@@ -138,15 +124,17 @@ def get_smld_loss_fn(vesde, train, reduce_mean=False):
     #noise = torch.randn_like(batch) * sigmas[:, None, None, None]
     noise = torch.randn_like(data) * sigmas[:, None, None]
     perturbed_data = noise + data
+
     # data length clipging
     for i,length_mark in enumerate(length):
       perturbed_data[i][length_mark.item():] = 0
     
-    perturbed_data[perturbed_data > 1.0] = 0.998
-    perturbed_data[perturbed_data < 0.0] = 0.0
+    # # data clipping for normed between 0 ~ 1    
+    # perturbed_data[perturbed_data > 1.0] = 0.998
+    # perturbed_data[perturbed_data < 0.0] = 0.0
     
     score = model_fn(perturbed_data, labels)
-    #target = -noise / (sigmas ** 2)[:,4 None, None, None]
+    #target = -noise / (sigmas ** 2)[:,None, None, None]
     target = -noise / (sigmas ** 2)[:, None, None]
     losses = torch.square(score - target)
     losses = reduce_op(losses.reshape(losses.shape[0], -1), dim=-1) * sigmas ** 2
@@ -170,34 +158,37 @@ def get_ddpm_loss_fn(vpsde, train, reduce_mean=True):
     noise = torch.randn_like(data)
     #perturbed_data = sqrt_alphas_cumprod[labels, None, None, None] * batch + sqrt_1m_alphas_cumprod[labels, None, None, None] * noise # discrete markov chain
     perturbed_data = sqrt_alphas_cumprod[labels, None, None] * data + sqrt_1m_alphas_cumprod[labels, None, None] * noise # discrete markov chain
+  
+  #   ########### debug purpose ############    
+    # target = data[0].detach().cpu().clone()
+    # #idx = min(torch.where(target==0)[0])
+    # if(length[0]!=623):
+    #   idx = min(torch.where(target==-1)[0])
+    #   target = target[:idx]
+    # target_batch = target.repeat(vpsde.N,1).reshape(vpsde.N, -1, 2)
+    # noise_batch = torch.randn_like(target_batch)
+    # perturbed_batch = sqrt_alphas_cumprod[:, None, None].detach().cpu() * target_batch + sqrt_1m_alphas_cumprod[:, None, None].detach().cpu() * noise_batch
 
-  #   ########### debug purpose ############
-  #   target = data[0].detach().cpu().clone()
-  #   idx = min(torch.where(target==0)[0])
-  #   target = target[:idx]
-  #   #target_batch = target.repeat(1000,1).reshape(1000, -1, 2)
-  #   target_batch = target.repeat(100,1).reshape(100, -1, 2)
-  #   noise_batch = torch.randn_like(target_batch)
-  #   perturbed_batch = sqrt_alphas_cumprod[:, None, None].detach().cpu() * target_batch + sqrt_1m_alphas_cumprod[:, None, None].detach().cpu() * noise_batch
+    # #perturbed_batch[perturbed_batch > 1.0] = 0.998
+    # #perturbed_batch[perturbed_batch < 0.0] = 0.0
 
-  #   perturbed_batch[perturbed_batch > 1.0] = 0.998
-  #   perturbed_batch[perturbed_batch < 0.0] = 0.0
-
-  #   for i in range(1000):
-  #     print("process: ", i)
-  #     try:
-  #       img_temp = show_graph_data(perturbed_batch[i])
-  #       cv2.imwrite(debug_path+str(i)+".png", img_temp)
-  #     except:
-  #       print("error process: ", i)
+    # for i in range(vpsde.N):
+    #   print("process: ", i)
+    #   try:
+    #     img_temp = show_graph_data(perturbed_batch[i])
+    #     cv2.imwrite(debug_path+str(i)+".png", img_temp)
+    #   except:
+    #     print("error process: ", i)
   # ########### debug purpose ############
 
     # data length clipging
     for i,length_mark in enumerate(length):
       perturbed_data[i][length_mark.item():] = 0
-    
-    perturbed_data[perturbed_data > 1.0] = 0.998
-    perturbed_data[perturbed_data < 0.0] = 0.0
+      noise[i][length_mark.item():] = 0
+
+    # # data clipping for normed between 0 ~ 1    
+    # perturbed_data[perturbed_data > 1.0] = 0.998
+    # perturbed_data[perturbed_data < 0.0] = 0.0
 
     score = model_fn(perturbed_data, labels)
     losses = torch.square(score - noise)

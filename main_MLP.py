@@ -15,7 +15,7 @@
 
 """Training and evaluation"""
 
-import run_lib_NLP
+import run_lib_MLP
 from absl import app
 from absl import flags
 from ml_collections.config_flags import config_flags
@@ -25,14 +25,31 @@ import tensorflow as tf
 
 FLAGS = flags.FLAGS
 
+# path = "./configs_vessel/ve/vessel_ddpm.py"
+# config_flags.DEFINE_config_file("config", path, "Training configuration.", lock_config=True)
+# flags.DEFINE_string("workdir", "./output/220524_experiments/220524_vessel_ve_original/", "Work directory.")
+#flags.DEFINE_string("workdir", "./output/220524_experiments/220524_vessel_ve_shuffle/", "Work directory.")
+
+# path = "./configs_vessel/vp/vessel_ddpmpp.py"
+# config_flags.DEFINE_config_file("config", path, "Training configuration.", lock_config=True)
+# flags.DEFINE_string("workdir", "./output/220524_experiments/220524_vessel_vp_0_0001_0_01/", "Work directory.")
+#flags.DEFINE_string("workdir", "./output/220524_experiments/220524_vessel_vp/", "Work directory.")
+#flags.DEFINE_string("workdir", "./output/220524_experiments/220524_vessel_vp_shuffle/", "Work directory.")
+
+# path = "./configs_vessel/vp/vessel_ddpmpp.py"
 path = "./configs_vessel/ve/vessel_ddpm.py"
-#path = "./configs_vessel/vp/vessel_ddpmpp.py"
 config_flags.DEFINE_config_file("config", path, "Training configuration.", lock_config=True)
 #flags.DEFINE_string("workdir", "./output/220520_vessel_test/", "Work directory.")
 #flags.DEFINE_string("workdir", "./output/220521_vessel_test/", "Work directory.")
-#flags.DEFINE_string("workdir", "./output/debug/220518_vessel/", "Work directory.")
-flags.DEFINE_string("workdir", "./output/debug/220520_vessel/", "Work directory.")
+#flags.DEFINE_string("workdir", "./output/220523_vessel_test_vp/", "Work directory.")
+#flags.DEFINE_string("workdir", "./output/220523_vessel_test_vp1000/", "Work directory.")
+#flags.DEFINE_string("workdir", "./output/220523_vessel_test_ve100/", "Work directory.")
+#flags.DEFINE_string("workdir", "./output/220523_vessel_test_ve1000/", "Work directory.")
+#flags.DEFINE_string("workdir", "./output/debug/220520_vessel/", "Work directory.")
+flags.DEFINE_string("workdir", "./output/debug/220524_vessel/", "Work directory.")
+
 flags.DEFINE_enum("mode", "train", ["train", "eval"], "Running mode: train or eval")
+#flags.DEFINE_enum("mode", "eval", ["train", "eval"], "Running mode: train or eval")
 flags.DEFINE_string("eval_folder", "eval", "The folder name for storing evaluation results")
 flags.mark_flags_as_required(["workdir", "config", "mode"])
 
@@ -50,12 +67,12 @@ def main(argv):
     logger.addHandler(handler)
     logger.setLevel('INFO')
     # Run the training pipeline
-    run_lib_NLP.train(FLAGS.config, FLAGS.workdir)
-    #run_lib_NLP.train_debug(FLAGS.config, FLAGS.workdir)
-    #run_lib_NLP.train_gen_debug(FLAGS.config, FLAGS.workdir)
+    run_lib_MLP.train(FLAGS.config, FLAGS.workdir)
+    #run_lib_NLP.node_generating(FLAGS.config, FLAGS.workdir)
   elif FLAGS.mode == "eval":
     # Run the evaluation pipeline
-    run_lib_NLP.evaluate(FLAGS.config, FLAGS.workdir, FLAGS.eval_folder)
+    run_lib_MLP.node_generating(FLAGS.config, FLAGS.workdir)
+    #run_lib_NLP.evaluate(FLAGS.config, FLAGS.workdir, FLAGS.eval_folder)
   else:
     raise ValueError(f"Mode {FLAGS.mode} not recognized.")
 
