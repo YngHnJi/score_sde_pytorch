@@ -3,7 +3,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from . import utils, layers, layerspp, normalization
+#from . import utils, layers, layerspp, normalization
+from . import utils_MLP as utils
+from . import layers, layerspp, normalization
 #import layers # debug purpose
 
 NIN = layers.NIN
@@ -19,14 +21,11 @@ class ResMLPBlock(nn.Module):
     super().__init__()
 
     out_ch = out_ch if out_ch else in_ch
-    #self.GroupNorm_0 = nn.GroupNorm(num_groups=min(in_ch // 4, 32), num_channels=in_ch, eps=1e-6)
     self.GroupNorm_0 = nn.GroupNorm(num_groups=min(in_ch // 4, 256), num_channels=in_ch, eps=1e-6)
     self.up = up
     self.down = down
     self.fir = fir
     self.fir_kernel = fir_kernel
-
-    #self.Conv_0 = conv3x3(in_ch, out_ch)
     self.Linear_0 = nn.Linear(in_ch, out_ch)
     if temb_dim is not None:
       self.Dense_0 = nn.Linear(temb_dim, out_ch)
@@ -48,20 +47,14 @@ class ResMLPBlock(nn.Module):
 
   def forward(self, x, temb=None):
     h = self.act(self.GroupNorm_0(x))
-
-    #h = self.Conv_0(h)
     h = self.Linear_0(h)
-    # Add bias to each feature map conditioned on the time embedding
     if temb is not None:
-      #h += self.Dense_0(self.act(temb))[:, :, None, None]
       h += self.Dense_0(self.act(temb))
     h = self.act(self.GroupNorm_1(h))
     h = self.Dropout_0(h)
-    #h = self.Conv_1(h)
     h = self.Linear_1(h)
 
     if self.in_ch != self.out_ch or self.up or self.down:
-      #x = self.Conv_2(x)
       x = self.Linear_2(x)
 
     if not self.skip_rescale:
@@ -90,12 +83,13 @@ class AttnBlock_NLP(nn.Module):
     k = self.k_linear(x)
     q = self.q_linear(x)
     w = torch.einsum('b i d, b d j -> b i j', k.unsqueeze(2), q.unsqueeze(1))
+    w = w / (self.reduction_channel ** 0.5)
     w = self.softmax(w)
 
     v = self.v_linear(x)
 
     out = torch.bmm(w, v.unsqueeze(2)).squeeze()
-    out = out / (self.reduction_channel ** 0.5)
+    #out = out / (self.reduction_channel ** 0.5)
     out = self.restore_linear(out)
 
     if not self.skip_rescale:
